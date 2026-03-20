@@ -1,124 +1,392 @@
-﻿import { Button } from "@/components/ui/button";
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { mockDashboardData } from "@/lib/mock-data";
+import {
+  mockDashboardData,
+  type DashboardCollection,
+  type DashboardItemTypeId,
+} from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
+
+const itemTypeRouteMap: Record<DashboardItemTypeId, string> = {
+  snippet: "snippets",
+  prompt: "prompts",
+  command: "commands",
+  note: "notes",
+  file: "files",
+  image: "images",
+  link: "links",
+};
+
+const itemTypeIconMap: Record<DashboardItemTypeId, string> = {
+  snippet: "</>",
+  prompt: "AI",
+  command: ">_",
+  note: "N",
+  file: "F",
+  image: "IMG",
+  link: "URL",
+};
+
+const recentCollections = mockDashboardData.collections
+  .map((collection) => {
+    const lastViewedAt = mockDashboardData.items
+      .filter((item) => item.collectionId === collection.id)
+      .map((item) => item.lastViewedAt)
+      .sort((left, right) => right.localeCompare(left))[0];
+
+    return {
+      ...collection,
+      lastViewedAt,
+    };
+  })
+  .sort((left, right) =>
+    (right.lastViewedAt ?? "").localeCompare(left.lastViewedAt ?? ""),
+  )
+  .slice(0, 3);
+
+const favoriteCollections = mockDashboardData.collections.filter(
+  (collection) => collection.isFavorite,
+);
 
 export default function DashboardPage() {
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+
+    const updateLayout = (event?: MediaQueryListEvent) => {
+      const desktop = event ? event.matches : mediaQuery.matches;
+      setIsDesktop(desktop);
+      setIsSidebarOpen(desktop);
+    };
+
+    updateLayout();
+    mediaQuery.addEventListener("change", updateLayout);
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateLayout);
+    };
+  }, []);
+
+  const sidebarExpanded = isDesktop ? isSidebarOpen : true;
+
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.12),_transparent_28%),linear-gradient(180deg,_#09090b_0%,_#050507_100%)] text-white">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <div className="rounded-[28px] border border-white/10 bg-black/40 shadow-2xl shadow-black/30 backdrop-blur">
-          <header className="flex flex-col gap-4 border-b border-white/10 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-sm font-semibold text-zinc-200">
-                DS
-              </div>
-              <div>
-                <p className="text-sm font-medium text-zinc-200">
-                  {mockDashboardData.user.name}
-                </p>
-                <p className="text-sm text-zinc-500">
-                  {mockDashboardData.user.email}
-                </p>
-              </div>
-            </div>
+        <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-black/40 shadow-2xl shadow-black/30 backdrop-blur">
+          {!isDesktop && isSidebarOpen ? (
+            <button
+              aria-label="Close sidebar overlay"
+              className="absolute inset-0 z-20 bg-black/60 lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+              type="button"
+            />
+          ) : null}
 
-            <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center">
-              <Input
-                aria-label="Search items"
-                className="lg:flex-1"
-                placeholder="Search items..."
-              />
-              <div className="flex items-center gap-3">
-                <Button className="min-w-32" variant="outline">
-                  New Collection
-                </Button>
-                <Button className="min-w-24">New Item</Button>
-              </div>
-            </div>
-          </header>
-
-          <section className="grid gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-8 lg:px-6">
-            <aside className="rounded-[24px] border border-white/10 bg-white/[0.03] p-6">
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                    Dashboard
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">
-                    Sidebar
-                  </h2>
-                </div>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-zinc-400">
-                  {mockDashboardData.itemTypes.length} types
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {mockDashboardData.itemTypes.map((itemType) => (
-                  <div
-                    className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.02] px-4 py-3"
-                    key={itemType.id}
-                  >
-                    <div>
-                      <p className="font-medium text-zinc-100">{itemType.name}</p>
-                      <p className="text-sm text-zinc-500">{itemType.label}</p>
-                    </div>
-                    <span className="text-sm text-zinc-400">{itemType.count}</span>
+          <div className="flex min-h-[calc(100vh-2rem)]">
+            <aside
+              className={cn(
+                "absolute inset-y-0 left-0 z-30 flex border-r border-white/10 bg-[#07070a] transition-[width,transform] duration-300 lg:static lg:translate-x-0",
+                isDesktop
+                  ? sidebarExpanded
+                    ? "w-[290px]"
+                    : "w-[88px]"
+                  : "w-[290px]",
+                !isDesktop && !isSidebarOpen && "-translate-x-full",
+              )}
+            >
+              <div className="flex h-full w-full flex-col">
+                <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#3b82f6_0%,#8b5cf6_100%)] text-sm font-semibold text-white shadow-lg shadow-blue-500/20">
+                    DS
                   </div>
-                ))}
+                  {sidebarExpanded ? (
+                    <div>
+                      <p className="text-lg font-semibold text-white">DevStash</p>
+                      <p className="text-sm text-zinc-500">Knowledge hub</p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+                  <SidebarSection label="Types" sidebarExpanded={sidebarExpanded}>
+                    {mockDashboardData.itemTypes.map((itemType) => (
+                      <Link
+                        className={cn(
+                          "flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition hover:bg-white/[0.05] hover:text-white",
+                          sidebarExpanded ? "justify-between" : "justify-center",
+                        )}
+                        href={`/items/${itemTypeRouteMap[itemType.id]}`}
+                        key={itemType.id}
+                      >
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-[11px] font-semibold text-sky-200">
+                            {itemTypeIconMap[itemType.id]}
+                          </span>
+                          {sidebarExpanded ? (
+                            <span className="truncate text-zinc-200">
+                              {itemType.name}
+                            </span>
+                          ) : null}
+                        </div>
+                        {sidebarExpanded ? (
+                          <span className="text-xs text-zinc-500">{itemType.count}</span>
+                        ) : null}
+                      </Link>
+                    ))}
+                  </SidebarSection>
+
+                  <SidebarSection label="Favorites" sidebarExpanded={sidebarExpanded}>
+                    {favoriteCollections.map((collection) => (
+                      <CollectionListItem
+                        collection={collection}
+                        key={collection.id}
+                        sidebarExpanded={sidebarExpanded}
+                      />
+                    ))}
+                  </SidebarSection>
+
+                  <SidebarSection label="Recent" sidebarExpanded={sidebarExpanded}>
+                    {recentCollections.map((collection) => (
+                      <CollectionListItem
+                        collection={collection}
+                        key={collection.id}
+                        meta={`${collection.itemCount} items`}
+                        sidebarExpanded={sidebarExpanded}
+                      />
+                    ))}
+                  </SidebarSection>
+                </div>
+
+                <div className="border-t border-white/10 p-4">
+                  <div
+                    className={cn(
+                      "flex items-center rounded-2xl border border-white/10 bg-white/[0.03]",
+                      sidebarExpanded ? "gap-3 px-3 py-3" : "justify-center px-2 py-3",
+                    )}
+                  >
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-zinc-950">
+                      {mockDashboardData.user.avatarLabel}
+                    </div>
+                    {sidebarExpanded ? (
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-white">
+                          {mockDashboardData.user.name}
+                        </p>
+                        <p className="truncate text-sm text-zinc-500">
+                          {mockDashboardData.user.email}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </aside>
 
-            <section className="rounded-[24px] border border-white/10 bg-white/[0.03] p-6">
-              <div className="mb-6 flex flex-col gap-3 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
-                    Phase 1
-                  </p>
-                  <h2 className="mt-2 text-3xl font-semibold text-white">Main</h2>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
-                    Dashboard scaffolding is in place for the upcoming collection,
-                    pinned, and recent sections.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
-                  {mockDashboardData.collections.length} collections loaded from
-                  mock data
-                </div>
-              </div>
+            <div className="flex min-w-0 flex-1 flex-col lg:ml-0">
+              <header className="border-b border-white/10 px-4 py-4 sm:px-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex items-center gap-3">
+                    <Button
+                      aria-label={
+                        isDesktop && isSidebarOpen
+                          ? "Collapse sidebar"
+                          : "Open sidebar"
+                      }
+                      className="shrink-0"
+                      onClick={() => setIsSidebarOpen((current) => !current)}
+                      size="icon"
+                      variant="outline"
+                    >
+                      <DrawerIcon />
+                    </Button>
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.3em] text-zinc-500">
+                        Dashboard
+                      </p>
+                      <h1 className="mt-1 text-2xl font-semibold text-white sm:text-3xl">
+                        Your developer workspace
+                      </h1>
+                    </div>
+                  </div>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {mockDashboardData.collections.slice(0, 6).map((collection) => (
-                  <article
-                    className="rounded-[22px] border border-white/8 bg-black/30 p-5"
-                    key={collection.id}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">
-                          {collection.name}
-                        </h3>
-                        <p className="mt-2 text-sm leading-6 text-zinc-400">
-                          {collection.description}
-                        </p>
+                  <div className="flex flex-1 flex-col gap-3 lg:max-w-3xl lg:flex-row lg:items-center lg:justify-end">
+                    <div className="relative lg:w-full lg:max-w-xl">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500">
+                        <SearchIcon />
+                      </span>
+                      <Input
+                        aria-label="Search items"
+                        className="pl-11"
+                        placeholder="Search items..."
+                      />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Button className="min-w-32" variant="outline">
+                        New Collection
+                      </Button>
+                      <Button className="min-w-24">New Item</Button>
+                    </div>
+                  </div>
+                </div>
+              </header>
+
+              <section className="flex-1 px-4 py-6 sm:px-6">
+                <div className="mb-6 flex flex-col gap-3 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+                      Phase 2
+                    </p>
+                    <h2 className="mt-2 text-3xl font-semibold text-white">Main</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-400">
+                      The dashboard now includes a collapsible navigation system,
+                      favorite collections, recent collections, and type-based
+                      links built directly from mock data.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100">
+                    {mockDashboardData.collections.length} collections loaded from
+                    mock data
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {mockDashboardData.collections.slice(0, 6).map((collection) => (
+                    <article
+                      className="rounded-[22px] border border-white/8 bg-black/30 p-5"
+                      key={collection.id}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">
+                            {collection.name}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-zinc-400">
+                            {collection.description}
+                          </p>
+                        </div>
+                        {collection.isFavorite ? (
+                          <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-xs font-medium text-amber-200">
+                            Favorite
+                          </span>
+                        ) : null}
                       </div>
-                      {collection.isFavorite ? (
-                        <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-xs font-medium text-amber-200">
-                          Favorite
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-6 flex items-center justify-between text-sm text-zinc-500">
-                      <span>{collection.itemCount} items</span>
-                      <span>{collection.itemTypeIds.join(" / ")}</span>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </section>
+                      <div className="mt-6 flex items-center justify-between text-sm text-zinc-500">
+                        <span>{collection.itemCount} items</span>
+                        <span>{collection.itemTypeIds.join(" / ")}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       </div>
     </main>
+  );
+}
+
+function SidebarSection({
+  children,
+  label,
+  sidebarExpanded,
+}: {
+  children: ReactNode;
+  label: string;
+  sidebarExpanded: boolean;
+}) {
+  return (
+    <section>
+      {sidebarExpanded ? (
+        <p className="mb-2 px-3 text-xs uppercase tracking-[0.22em] text-zinc-500">
+          {label}
+        </p>
+      ) : null}
+      <div className="space-y-1">{children}</div>
+    </section>
+  );
+}
+
+function CollectionListItem({
+  collection,
+  meta,
+  sidebarExpanded,
+}: {
+  collection: DashboardCollection;
+  meta?: string;
+  sidebarExpanded: boolean;
+}) {
+  return (
+    <button
+      className={cn(
+        "flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/[0.05]",
+        sidebarExpanded ? "justify-between" : "justify-center",
+      )}
+      type="button"
+    >
+      <div className="flex items-center gap-3 overflow-hidden">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-xs font-semibold text-amber-200">
+          {collection.isFavorite ? "STAR" : "COL"}
+        </span>
+        {sidebarExpanded ? (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-zinc-200">
+              {collection.name}
+            </p>
+            <p className="truncate text-xs text-zinc-500">
+              {meta ?? collection.description}
+            </p>
+          </div>
+        ) : null}
+      </div>
+      {sidebarExpanded && collection.isFavorite ? (
+        <span className="text-amber-300">*</span>
+      ) : null}
+    </button>
+  );
+}
+
+function DrawerIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 5h16M4 12h16M4 19h16"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  );
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M16 16l4 4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
   );
 }
