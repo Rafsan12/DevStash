@@ -23,3 +23,5 @@ Not Started
 - Initial Next.js app setup from Create Next App
 - Initial Next.js setup and Tailwind setup committed in `8e45554`
 - Project setup and boilerplate cleanup
+- Dashboard UI Phase 1 started
+- Dashboard UI Phase 1 completed
